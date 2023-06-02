@@ -3,9 +3,9 @@ import time
 from dataclasses import dataclass
 from typing import Optional
 
-import bs4  # type: ignore
-import requests  # type: ignore
-import xlsxwriter  # type: ignore
+import bs4
+import openpyxl
+import requests
 
 
 # car dataclass
@@ -49,6 +49,7 @@ class scraper_cars_dot_com:
     soup: bs4.BeautifulSoup
     links: list = []
     cars: list[car] = []
+    new_cars: list[car] = []
 
     def __init__(self) -> None:
         pass
@@ -57,6 +58,10 @@ class scraper_cars_dot_com:
         self.retrieve_site()
         self.grab_links()
         self.get_each_car_info()
+
+        excel_contr: excel_controller = excel_controller()
+        existing_vins = excel_contr.grab_workbook_data_vin("911 For Sale")
+        self.get_new_vehicles(existing_vins)
 
     def retrieve_site(self) -> None:
         url = self.compile_url()
@@ -71,6 +76,7 @@ class scraper_cars_dot_com:
     def get_each_car_info(self) -> None:
         for link in self.links:
             car_link = self.link_prefix + link
+            print(f"Grabbing from: {car_link}")
             car_info = self.get_car_info(car_link)
             if car_info:
                 self.cars.append(car_info)
@@ -137,29 +143,48 @@ class scraper_cars_dot_com:
 
         return result
 
+    def get_new_vehicles(self, existing_vins: list[str]) -> None:
+        for car in self.cars:
+            if car.vin not in existing_vins:
+                self.new_cars.append(car)
+
 
 class excel_controller:
     workbook_name: str = "911_for_sale.xlsx"
 
-    def add_data_to_workbook(self, data: list[car]):
-        workbook = xlsxwriter.Workbook(self.workbook_name)
-        worksheet = workbook.add_worksheet()
+    def add_data_to_workbook(self, data: list[car], worksheet_name: str) -> None:
+        wb = openpyxl.load_workbook(filename=self.workbook_name)
 
-        row = 0
-        col = 0
+        if worksheet_name in wb.sheetnames:
+            wb.remove(wb[worksheet_name])
+        ws = wb.active
+        ws.title = worksheet_name
+
+        row = col = 1
 
         for car in data:
-            worksheet.write(row, col, car.vin)
-            worksheet.write(row, col + 1, car.year)
-            worksheet.write(row, col + 2, car.title)
-            worksheet.write(row, col + 3, car.price)
-            worksheet.write(row, col + 4, car.mileage)
-            worksheet.write(row, col + 5, car.drivetrain)
-            worksheet.write(row, col + 6, car.stock_num)
-            worksheet.write(row, col + 7, car.sale_link)
+            ws.cell(column=col, row=row, value=car.vin)
+            ws.cell(column=col + 1, row=row, value=car.year)
+            ws.cell(column=col + 2, row=row, value=car.title)
+            ws.cell(column=col + 3, row=row, value=car.price)
+            ws.cell(column=col + 4, row=row, value=car.mileage)
+            ws.cell(column=col + 5, row=row, value=car.drivetrain)
+            ws.cell(column=col + 6, row=row, value=car.stock_num)
+            ws.cell(column=col + 7, row=row, value=car.sale_link)
 
             row += 1
-        workbook.close()
+
+        wb.save(filename=self.workbook_name)
+
+    def grab_workbook_data_vin(self, worksheet_name: str) -> list[str]:
+        wb = openpyxl.load_workbook(filename=self.workbook_name)
+        ws1 = wb[worksheet_name]
+        result: list[str] = []
+        for row in ws1.iter_rows():  # type: ignore
+            if row[0]:
+                result.append(row[0].value)
+
+        return result
 
 
 if __name__ == "__main__":
@@ -167,4 +192,6 @@ if __name__ == "__main__":
     excel_contr: excel_controller = excel_controller()
 
     cars_com.run()
-    excel_contr.add_data_to_workbook(cars_com.cars)
+    excel_contr.add_data_to_workbook(cars_com.cars, "911 For Sale")
+    # vins = excel_contr.grab_workbook_data_vin("911 For Sale")
+    excel_contr.add_data_to_workbook(cars_com.new_cars, "New 911s For Sale")
