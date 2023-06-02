@@ -13,12 +13,12 @@ if __name__ == "__main__":
     print(f"Number of site_crawler grabbed pages: {len(site_crawler._url_list)}")
 
     data: list = [business_info]
-    # for i in range(0, 10):
-    #     data.append(scrape_data_worker(site_crawler._url_list[i].url))
-    data.append(
-        scrape_data_worker(
-            "https://nevadabusiness.com/nbm-business-directory/38271/eugene-burger-management-corporation-4/"
-        )
-    )
+    for i in range(0, 10):
+        data.append(scrape_data_worker(site_crawler._url_list[i].url))
+    # data.append(
+    #     scrape_data_worker(
+    #         "https://nevadabusiness.com/nbm-business-directory/38271/eugene-burger-management-corporation-4/"
+    #     )
+    # )
 
     export_to_csv(filename="data.csv", data=data)
